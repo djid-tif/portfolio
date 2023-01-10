@@ -1,54 +1,36 @@
-name: Deploy to Github Pages
+name: Deploy Hugo Site
 
+# run when a commit is pushed to "master" branch
 on:
-    push:
-        branches: [master]
-    pull_request:
-        branches: [master]
+  push:
+    branches:
+      - master
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-20.04
+    steps:
+      # checkout to the commit that has been pushed
+      - uses: actions/checkout@v2
+        with:
+          submodules: true  # Fetch Hugo themes
+          fetch-depth: 0    # Fetch all history for .GitInfo and .Lastmod
 
-        steps:
-            - uses: actions/checkout@v2
+      # install Hugo
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v2
+        with:
+          hugo-version: '0.109.0' # Version to compile Hugo, best is to use same as local
+          extended: true
 
-            - name: Cache Hugo resources
-              uses: actions/cache@v2
-              env:
-                  cache-name: cache-hugo-resources
-              with:
-                  path: resources
-                  key: ${{ env.cache-name }}
+      # build website
+      - name: Build
+        run: hugo --minify
 
-            - uses: actions/setup-go@v2
-              with:
-                  go-version: "^1.17.0"
-            - run: go version
-
-            - name: Cache Go Modules
-              uses: actions/cache@v2
-              with:
-                  path: |
-                      ~/.cache/go-build
-                      ~/go/pkg/mod
-                  key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-                  restore-keys: |
-                      ${{ runner.os }}-go-
-
-            - name: Setup Hugo
-              uses: peaceiris/actions-hugo@v2
-              with:
-                  hugo-version: "latest"
-                  extended: true
-
-            - name: Build
-              run: hugo --minify --gc
-
-            - name: Deploy 🚀
-              uses: JamesIves/github-pages-deploy-action@4.1.4
-              with:
-                  branch: gh-pages
-                  folder: public
-                  clean: true
-                  single-commit: true
+      # push the generated content into the `deployed` branch.
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: deployed # Branch which will store compiled version
+          publish_dir: ./public
